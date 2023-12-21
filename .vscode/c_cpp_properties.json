@@ -3,6 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
+                "/usr/include/opencv4",
                 "${workspaceFolder}/libcarla-install/include",
                 "${workspaceFolder}/libcarla-install/include/system"
             ],

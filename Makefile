@@ -6,7 +6,7 @@ TOOLCHAIN=$(CURDIR)/ToolChain.cmake
 
 CC=/usr/bin/gcc-12
 CXX=/usr/bin/g++-12
-CXXFLAGS=-std=c++14 -pthread -fPIC -O3 -DNDEBUG
+CXXFLAGS=-std=c++17 -pthread -fPIC -O3 -DNDEBUG
 
 SRCFILES = main.cpp
 
@@ -27,13 +27,16 @@ run.only:
 	$(call log,Running C++ Client...)
 	@$(BINDIR)/cpp_client $(ARGS)
 
+build: $(BINDIR)/cpp_client
+
 $(BINDIR)/cpp_client: $(SRCFILES)
 	$(call log,Compiling C++ Client...)
 	@mkdir -p $(BINDIR)
 	@$(CXX) $(CXXFLAGS) -I$(INSTALLDIR)/include -isystem $(INSTALLDIR)/include/system -L$(INSTALLDIR)/lib \
 		-o $(BINDIR)/cpp_client $(SRCFILES) \
 		-Wl,-Bstatic -lcarla_client -lrpc -lboost_filesystem -Wl,-Bdynamic \
-		-lpng -ltiff -ljpeg -lRecast -lDetour -lDetourCrowd
+		-lpng -ltiff -ljpeg -lRecast -lDetour -lDetourCrowd \
+		`pkg-config --cflags --libs opencv4`
 
 build_libcarla: $(TOOLCHAIN)
 	@cd $(CARLADIR); make setup

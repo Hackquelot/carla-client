@@ -1,13 +1,19 @@
 #include <carla/client/BlueprintLibrary.h>
 #include <carla/client/Client.h>
+#include <carla/client/Sensor.h>
 #include <carla/client/TimeoutException.h>
 #include <carla/client/World.h>
+#include <carla/image/ImageView.h>
+#include <carla/sensor/data/Image.h>
 
 #include <iostream>
+#include <opencv2/opencv.hpp>
 #include <random>
 
 namespace cc = carla::client;
 namespace cg = carla::geom;
+namespace ci = carla::image;
+namespace csd = carla::sensor::data;
 
 using namespace std::chrono_literals;
 
@@ -64,27 +70,47 @@ int main() try {
     control.throttle = 0.5f;
     vehicle->ApplyControl(control);
 
-    // Adding a dummy collision detector sensor to move the viewpoint
-    auto collision_detector_blueprint =
-        blueprint_library->Find("sensor.other.collision");
-    auto collision_detector_transform = cg::Transform(
-        cg::Location{-5.5f, 0.0f, 2.8f}, cg::Rotation{-15.0f, 0.0f, 0.0f});
-    auto collision_detector =
-        world.SpawnActor(*collision_detector_blueprint,
-                         collision_detector_transform, actor.get());
+    // RGB camera that captures the scenario as the car moves in the world
+    auto rgb_camera_blueprint = blueprint_library->Find("sensor.camera.rgb");
+    auto rgb_camera_transform = cg::Transform(cg::Location{-1.5f, 0.0f, 2.5f},
+                                              cg::Rotation{-5.0f, 0.0f, 0.0f});
+    auto rgb_camera = world.SpawnActor(*rgb_camera_blueprint,
+                                       rgb_camera_transform, actor.get());
+    auto camera = boost::static_pointer_cast<cc::Sensor>(rgb_camera);
 
-    auto spectator = world.GetSpectator();
-    // Show the vehicle for 500 frames
-    for (int i = 0; i < 500; ++i) {
-        world.WaitForTick(10min);
-        // Update the viewport with the help of the spectator
-        spectator->SetTransform(collision_detector->GetTransform());
+    cv::Mat screen;
+    // Call back to get a picture from the camera mounted in the vehicle
+    camera->Listen([&](auto data) {
+        // Transform the image to a format that OpenCV understands
+        auto image = boost::static_pointer_cast<csd::Image>(data);
+        EXPECT_TRUE(nullptr != image);
+        auto view = ci::ImageView::MakeView(*image);
+        screen = cv::Mat(view.height(), view.width(), CV_8UC4, &view(0, 0));
+    });
+
+    // Create a window to display the camera picture
+    std::string window_name("C++ Carla Client");
+    cv::namedWindow(window_name);
+    int key = 0;
+
+    while (true) {
+        world.WaitForTick(timeout);
+        // Render the camera picture on screen
+        cv::imshow(window_name, screen);
+        // If the key 'q' is pressed, terminate the execution of the client
+        key = cv::waitKey(1);
+        if ('q' == key || 'Q' == key) {
+            break;
+        }
     }
 
-    // Remove the vehicle and set back the original settings
+    // Remove the actors used and revert the world settings
+    camera->Destroy();
     vehicle->Destroy();
-    std::cout << "Actor destroyed." << std::endl;
     world.ApplySettings(original_settings, timeout);
+    cv::destroyWindow(window_name);
+
+    std::cout << "Execution finished." << std::endl;
 
     return 0;
 } catch (const cc::TimeoutException &e) {
