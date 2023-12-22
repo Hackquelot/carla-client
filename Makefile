@@ -6,7 +6,7 @@ TOOLCHAIN=$(CURDIR)/ToolChain.cmake
 
 CC=/usr/bin/gcc-12
 CXX=/usr/bin/g++-12
-CXXFLAGS=-std=c++17 -pthread -fPIC -O3 -DNDEBUG
+CXXFLAGS=-std=c++17 -pthread -fPIC -O3 -DNDEBUG -Werror -Wall -Wextra
 
 SRCFILES = main.cpp
 
