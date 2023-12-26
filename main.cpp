@@ -1,3 +1,4 @@
+#include <carla/client/ActorList.h>
 #include <carla/client/BlueprintLibrary.h>
 #include <carla/client/Sensor.h>
 #include <carla/client/TimeoutException.h>
@@ -33,6 +34,7 @@ int main() try {
     auto world = client.GetWorld();
     auto map = world.GetMap();
     auto blueprint_library = world.GetBlueprintLibrary();
+    auto map_spawnpoints = map->GetRecommendedSpawnPoints();
 
     // Save the original settings
     auto original_settings = world.GetSettings();
@@ -42,37 +44,44 @@ int main() try {
     new_settings.fixed_delta_seconds = 1.0 / 30.0;
     world.ApplySettings(new_settings, timeout);
 
-    // Get the blueprint for a vehicle and a random spawn point
-    auto vehicle_blueprint = blueprint_library->Find("vehicle.tesla.model3");
-    auto spawn_point =
-        carla_client::RandomChoice(map->GetRecommendedSpawnPoints(), rng);
-
     // Spawn the vehicle in the world
-    auto actor = world.SpawnActor(*vehicle_blueprint, spawn_point);
+    auto actor = world.SpawnActor(*(blueprint_library->Find("vehicle.tesla.model3")),
+                                  carla_client::RandomChoice(map_spawnpoints, rng));
     std::cout << "Spawned vehicle: " << actor->GetDisplayId() << '\n';
     auto vehicle = boost::static_pointer_cast<cc::Vehicle>(actor);
 
-    // Allow to control the vehicle and make it move
-    cc::Vehicle::Control control;
-    control.throttle = 0.5f;
-    vehicle->ApplyControl(control);
+    // ToDo: For now set the autopilot in the vehicle, this will be changed
+    // later
+    vehicle->SetAutopilot();
+
+    // Spawn some vehicles to have traffic in the simulation
+    {
+        unsigned counter = 0;
+        auto blueprint_vehicles = blueprint_library->Filter("vehicle");
+        for (unsigned index = 0; index < 20; ++index) {
+            // Try to spawn a random vehicle and on a random spawn point
+            auto current_actor = world.TrySpawnActor(carla_client::RandomChoice(*blueprint_vehicles, rng),
+                                                     carla_client::RandomChoice(map_spawnpoints, rng));
+            if (nullptr != current_actor) {
+                boost::static_pointer_cast<cc::Vehicle>(current_actor)->SetAutopilot();
+                ++counter;
+            }
+        }
+        std::cout << "Spawned " << counter << " vehicles for the traffic." << std::endl;
+    }
 
     // RGB camera that captures the scenario as the car moves in the world
     auto rgb_camera =
         world.SpawnActor(*blueprint_library->Find("sensor.camera.rgb"),
-                         cg::Transform(cg::Location{-1.5f, 0.0f, 2.5f},
-                                       cg::Rotation{-5.0f, 0.0f, 0.0f}),
-                         actor.get());
+                         cg::Transform(cg::Location{-1.5f, 0.0f, 2.5f}, cg::Rotation{-5.0f, 0.0f, 0.0f}), actor.get());
     auto camera_sensor = boost::static_pointer_cast<cc::Sensor>(rgb_camera);
 
     // GPS sensor to know the position of the vehicle
-    auto gnss = world.SpawnActor(*blueprint_library->Find("sensor.other.gnss"),
-                                 cg::Transform(), actor.get());
+    auto gnss = world.SpawnActor(*blueprint_library->Find("sensor.other.gnss"), cg::Transform(), actor.get());
     auto gnss_sensor = boost::static_pointer_cast<cc::Sensor>(gnss);
 
     // Inertial Measurement Unit sensor
-    auto imu = world.SpawnActor(*blueprint_library->Find("sensor.other.imu"),
-                                cg::Transform(), actor.get());
+    auto imu = world.SpawnActor(*blueprint_library->Find("sensor.other.imu"), cg::Transform(), actor.get());
     auto imu_sensor = boost::static_pointer_cast<cc::Sensor>(imu);
 
     // ToDo: Add a mutex to avoid accessing the sensor's data with several
@@ -91,18 +100,15 @@ int main() try {
     // Callback for the gnss data
     cg::GeoLocation gnss_data;
     gnss_sensor->Listen([&](auto data) {
-        auto gnss_measurement =
-            boost::static_pointer_cast<csd::GnssMeasurement>(data);
+        auto gnss_measurement = boost::static_pointer_cast<csd::GnssMeasurement>(data);
         gnss_data = gnss_measurement->GetGeoLocation();
     });
 
     carla_client::IMUData imu_data;
     // Callback for the imu sensor
     imu_sensor->Listen([&](auto data) {
-        auto imu_measurement =
-            boost::static_pointer_cast<csd::IMUMeasurement>(data);
-        imu_data = {imu_measurement->GetAccelerometer(),
-                    imu_measurement->GetGyroscope(),
+        auto imu_measurement = boost::static_pointer_cast<csd::IMUMeasurement>(data);
+        imu_data = {imu_measurement->GetAccelerometer(), imu_measurement->GetGyroscope(),
                     imu_measurement->GetCompass()};
     });
 
@@ -115,31 +121,20 @@ int main() try {
         world.WaitForTick(timeout);
         // Add some text to the image that will be displayed in screen
         {
-            carla_client::drawBoxedText(
-                image_data, "Altitude: " + std::to_string(gnss_data.altitude),
-                {20, 20});
-            carla_client::drawBoxedText(
-                image_data, "Latitude: " + std::to_string(gnss_data.latitude),
-                {20, 40});
-            carla_client::drawBoxedText(
-                image_data, "Longitude: " + std::to_string(gnss_data.longitude),
-                {20, 60});
+            carla_client::drawBoxedText(image_data, "Altitude: " + std::to_string(gnss_data.altitude), {20, 20});
+            carla_client::drawBoxedText(image_data, "Latitude: " + std::to_string(gnss_data.latitude), {20, 40});
+            carla_client::drawBoxedText(image_data, "Longitude: " + std::to_string(gnss_data.longitude), {20, 60});
             carla_client::drawBoxedText(
                 image_data,
-                "Acceleration: " + std::to_string((imu_data.accelerometer -
-                                                   carla_client::gravity)
-                                                      .Length()),
-                {20, 80});
-            carla_client::drawBoxedText(
-                image_data,
-                "Gyroscope: " + std::to_string(imu_data.gyroscope.Length()),
-                {20, 100});
+                "Acceleration: " + std::to_string((imu_data.accelerometer - carla_client::gravity).Length()), {20, 80});
+            carla_client::drawBoxedText(image_data, "Gyroscope: " + std::to_string(imu_data.gyroscope.Length()),
+                                        {20, 100});
             carla_client::drawCompass(image_data, imu_data);
         }
         // Render the camera picture on the screen
         cv::imshow(window_name, image_data);
-        // If the key 'q' is pressed or escape (esc), terminate the execution of
-        // the client
+        // If the key 'q' is pressed or escape (esc), terminate the
+        // execution of the client
         key = cv::waitKey(1);
         if ('q' == key || 'Q' == key || 27 == key) {
             break;
@@ -150,7 +145,11 @@ int main() try {
     imu_sensor->Destroy();
     gnss_sensor->Destroy();
     camera_sensor->Destroy();
-    vehicle->Destroy();
+    auto current_vehicles = world.GetActors()->Filter("*vehicle*");
+    std::cout << "Current valid vehicles: " << current_vehicles->size() << std::endl;
+    for (unsigned index = 0; index < current_vehicles->size(); ++index) {
+        current_vehicles->at(index)->Destroy();
+    }
     world.ApplySettings(original_settings, timeout);
 
     cv::destroyWindow(window_name);
@@ -158,7 +157,7 @@ int main() try {
     std::cout << "Execution finished." << std::endl;
 
     return 0;
-} catch (const cc::TimeoutException &e) {
+} catch (const cc::TimeoutException& e) {
     std::cout << std::endl << e.what() << std::endl;
 
     return 1;
