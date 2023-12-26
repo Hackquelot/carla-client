@@ -8,7 +8,7 @@ CC=/usr/bin/gcc-12
 CXX=/usr/bin/g++-12
 CXXFLAGS=-std=c++17 -pthread -fPIC -O3 -DNDEBUG -Werror -Wall -Wextra
 
-SRCFILES = main.cpp
+SRCFILES = common.cpp main.cpp
 
 define log
 	@echo "\033[1;35m$(1)\033[0m"

@@ -1,38 +1,18 @@
 #include <carla/client/BlueprintLibrary.h>
-#include <carla/client/Client.h>
 #include <carla/client/Sensor.h>
 #include <carla/client/TimeoutException.h>
 #include <carla/client/World.h>
-#include <carla/image/ImageView.h>
 #include <carla/sensor/data/GnssMeasurement.h>
 #include <carla/sensor/data/IMUMeasurement.h>
-#include <carla/sensor/data/Image.h>
 
 #include <cmath>
 #include <iostream>
-#include <opencv2/opencv.hpp>
 #include <random>
 #include <unordered_map>
 
-namespace cc = carla::client;
-namespace cg = carla::geom;
-namespace ci = carla::image;
-namespace csd = carla::sensor::data;
+#include "common.h"
 
 using namespace std::chrono_literals;
-
-#define EXPECT_TRUE(cond)                \
-    if (!(cond)) {                       \
-        throw std::runtime_error(#cond); \
-    }
-
-// Pick a random element from a range.
-template <typename RangeT, typename RNG>
-static auto &RandomChoice(const RangeT &range, RNG &&generator) {
-    EXPECT_TRUE(range.size() > 0u);
-    std::uniform_int_distribution<size_t> dist{0u, range.size() - 1u};
-    return range[dist(std::forward<RNG>(generator))];
-}
 
 int main() try {
     carla::time_duration timeout(30s);
@@ -64,7 +44,8 @@ int main() try {
 
     // Get the blueprint for a vehicle and a random spawn point
     auto vehicle_blueprint = blueprint_library->Find("vehicle.tesla.model3");
-    auto spawn_point = RandomChoice(map->GetRecommendedSpawnPoints(), rng);
+    auto spawn_point =
+        carla_client::RandomChoice(map->GetRecommendedSpawnPoints(), rng);
 
     // Spawn the vehicle in the world
     auto actor = world.SpawnActor(*vehicle_blueprint, spawn_point);
@@ -94,6 +75,9 @@ int main() try {
                                 cg::Transform(), actor.get());
     auto imu_sensor = boost::static_pointer_cast<cc::Sensor>(imu);
 
+    // ToDo: Add a mutex to avoid accessing the sensor's data with several
+    // threads
+
     cv::Mat image_data;
     // Callback to get a picture from the camera mounted in the vehicle
     camera_sensor->Listen([&](auto data) {
@@ -112,12 +96,7 @@ int main() try {
         gnss_data = gnss_measurement->GetGeoLocation();
     });
 
-    cg::Vector3D gravity = {0, 0, 9.81};
-    struct {
-        cg::Vector3D accelerometer;
-        cg::Vector3D gyroscope;
-        float compass;
-    } imu_data;
+    carla_client::IMUData imu_data;
     // Callback for the imu sensor
     imu_sensor->Listen([&](auto data) {
         auto imu_measurement =
@@ -127,57 +106,7 @@ int main() try {
                     imu_measurement->GetCompass()};
     });
 
-    // Some OpenCV constants
-    const cv::Scalar COLOR_WHITE{255, 255, 255};
-    const cv::Scalar COLOR_BLACK{0, 0, 0};
-
-    const cv::HersheyFonts FONT_FACE = cv::FONT_HERSHEY_COMPLEX;
-    const cv::LineTypes LINE_TYPE = cv::LINE_8;
-    const double FONT_SCALE = 0.5;
-    const int32_t FONT_THICKNESS = 1;
-
-    std::pair<int32_t, int32_t> compass_center{700, 100};
-    int32_t compass_size = 50;
-    std::unordered_map<std::string, std::pair<int32_t, int32_t>>
-        cardinal_directions{
-            {"N", {0, -1}}, {"E", {1, 0}}, {"S", {0, 1}}, {"W", {-1, 0}}};
-
-    auto drawBoxedText = [&](const std::string &text, const cv::Point &point) {
-        auto text_size = cv::getTextSize(text, FONT_FACE, FONT_SCALE,
-                                         FONT_THICKNESS, nullptr);
-        cv::rectangle(image_data, point,
-                      {point.x + text_size.width, point.y + text_size.height},
-                      COLOR_BLACK, cv::FILLED);
-        cv::putText(
-            image_data, text,
-            {point.x,
-             static_cast<int32_t>(point.y + text_size.height + FONT_SCALE - 1)},
-            FONT_FACE, FONT_SCALE, COLOR_WHITE, FONT_THICKNESS, LINE_TYPE);
-    };
-
-    auto drawCompass = [&]() {
-        for (const auto &cardinal_direction : cardinal_directions) {
-            cv::putText(
-                image_data, cardinal_direction.first,
-                {static_cast<int32_t>(compass_center.first +
-                                      1.2 * compass_size *
-                                          cardinal_direction.second.first),
-                 static_cast<int32_t>(compass_center.second +
-                                      1.2 * compass_size *
-                                          cardinal_direction.second.second)},
-                FONT_FACE, FONT_SCALE, COLOR_WHITE, FONT_THICKNESS, LINE_TYPE);
-            cv::Point compass_point(
-                static_cast<int32_t>(compass_center.first +
-                                     compass_size * std::sin(imu_data.compass)),
-                static_cast<int32_t>(compass_center.second +
-                                     compass_size *
-                                         std::cos(imu_data.compass)));
-            cv::line(image_data, {compass_center.first, compass_center.second},
-                     compass_point, COLOR_WHITE, 2);
-        }
-    };
-
-    // Create a window to display the camera picture
+    // Create a window to display the camera's picture
     std::string window_name("C++ Carla Client");
     cv::namedWindow(window_name);
     int32_t key = 0;
@@ -186,20 +115,26 @@ int main() try {
         world.WaitForTick(timeout);
         // Add some text to the image that will be displayed in screen
         {
-            drawBoxedText("Altitude: " + std::to_string(gnss_data.altitude),
-                          {20, 20});
-            drawBoxedText("Latitude: " + std::to_string(gnss_data.latitude),
-                          {20, 40});
-            drawBoxedText("Longitude: " + std::to_string(gnss_data.longitude),
-                          {20, 60});
-            drawBoxedText(
-                "Acceleration: " +
-                    std::to_string((imu_data.accelerometer - gravity).Length()),
+            carla_client::drawBoxedText(
+                image_data, "Altitude: " + std::to_string(gnss_data.altitude),
+                {20, 20});
+            carla_client::drawBoxedText(
+                image_data, "Latitude: " + std::to_string(gnss_data.latitude),
+                {20, 40});
+            carla_client::drawBoxedText(
+                image_data, "Longitude: " + std::to_string(gnss_data.longitude),
+                {20, 60});
+            carla_client::drawBoxedText(
+                image_data,
+                "Acceleration: " + std::to_string((imu_data.accelerometer -
+                                                   carla_client::gravity)
+                                                      .Length()),
                 {20, 80});
-            drawBoxedText(
+            carla_client::drawBoxedText(
+                image_data,
                 "Gyroscope: " + std::to_string(imu_data.gyroscope.Length()),
                 {20, 100});
-            drawCompass();
+            carla_client::drawCompass(image_data, imu_data);
         }
         // Render the camera picture on the screen
         cv::imshow(window_name, image_data);
@@ -211,7 +146,7 @@ int main() try {
         }
     }
 
-    // Remove the vehicle and the sensors and revert the world settings
+    // Remove the vehicle, the sensors and revert the world settings
     imu_sensor->Destroy();
     gnss_sensor->Destroy();
     camera_sensor->Destroy();
