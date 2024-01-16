@@ -8,7 +8,7 @@ CC=/usr/bin/gcc-12
 CXX=/usr/bin/g++-12
 CXXFLAGS=-std=c++17 -pthread -fPIC -O3 -DNDEBUG -Werror -Wall -Wextra
 
-SRCFILES = common.cpp main.cpp
+SRCFILES = src/common.cpp src/main.cpp
 
 define log
 	@echo "\033[1;35m$(1)\033[0m"
@@ -32,8 +32,8 @@ build: $(BINDIR)/cpp_client
 $(BINDIR)/cpp_client: $(SRCFILES)
 	$(call log,Compiling C++ Client...)
 	@mkdir -p $(BINDIR)
-	@$(CXX) $(CXXFLAGS) -I$(INSTALLDIR)/include -isystem $(INSTALLDIR)/include/system -L$(INSTALLDIR)/lib \
-		-o $(BINDIR)/cpp_client $(SRCFILES) \
+	@$(CXX) $(CXXFLAGS) -I$(INSTALLDIR)/include -Iinclude -isystem $(INSTALLDIR)/include/system \
+	    -L$(INSTALLDIR)/lib -o $(BINDIR)/cpp_client $(SRCFILES) \
 		-Wl,-Bstatic -lcarla_client -lrpc -lboost_filesystem -Wl,-Bdynamic \
 		-lpng -ltiff -ljpeg -lRecast -lDetour -lDetourCrowd \
 		`pkg-config --cflags --libs opencv4`
