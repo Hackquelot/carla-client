@@ -50,8 +50,7 @@ int main() try {
     std::cout << "Spawned vehicle: " << actor->GetDisplayId() << '\n';
     auto vehicle = boost::static_pointer_cast<cc::Vehicle>(actor);
 
-    // ToDo: For now set the autopilot in the vehicle, this will be changed
-    // later
+    // ToDo: For now set the autopilot in the vehicle, this will be changed later
     vehicle->SetAutopilot();
 
     // Spawn some vehicles to have traffic in the simulation
@@ -84,8 +83,7 @@ int main() try {
     auto imu = world.SpawnActor(*blueprint_library->Find("sensor.other.imu"), cg::Transform(), actor.get());
     auto imu_sensor = boost::static_pointer_cast<cc::Sensor>(imu);
 
-    // ToDo: Add a mutex to avoid accessing the sensor's data with several
-    // threads
+    // ToDo: Add a mutex to avoid accessing the sensor's data with several threads
 
     cv::Mat image_data;
     // Callback to get a picture from the camera mounted in the vehicle
@@ -133,8 +131,7 @@ int main() try {
         }
         // Render the camera picture on the screen
         cv::imshow(window_name, image_data);
-        // If the key 'q' is pressed or escape (esc), terminate the
-        // execution of the client
+        // If the key 'q' is pressed or escape (esc), terminate the execution of the client
         key = cv::waitKey(1);
         if ('q' == key || 'Q' == key || 27 == key) {
             break;
