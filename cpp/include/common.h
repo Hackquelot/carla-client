@@ -46,7 +46,6 @@ struct IMUData {
 };
 
 // Functions to draw some elements over the camera image
-void drawBoxedText(cv::Mat &image_data, const std::string &text,
-                   const cv::Point &point);
+void drawBoxedText(cv::Mat &image_data, const std::string &text, const cv::Point &point);
 void drawCompass(cv::Mat &image_data, const IMUData &imu_data);
 }  // namespace carla_client
