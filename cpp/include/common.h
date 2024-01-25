@@ -17,16 +17,18 @@ namespace cg = carla::geom;
 namespace ci = carla::image;
 namespace csd = carla::sensor::data;
 
-namespace carla_client {
+namespace client {
+constexpr int32_t TRAFFIC_VEHICLES = 10;
+
 // OpenCV constants for some colors
 static const cv::Scalar COLOR_WHITE{255, 255, 255};
 static const cv::Scalar COLOR_BLACK{0, 0, 0};
 
 // OpenCV constants for the text characteristics
 static const cv::HersheyFonts FONT_FACE = cv::FONT_HERSHEY_COMPLEX;
-static const cv::LineTypes LINE_TYPE = cv::LINE_8;
 static const double FONT_SCALE = 0.5;
 static const int32_t FONT_THICKNESS = 1;
+static const cv::LineTypes LINE_TYPE = cv::LINE_8;
 
 // Function to pick a random element from a given range
 template <typename RangeT, typename RNG>
@@ -48,4 +50,4 @@ struct IMUData {
 // Functions to draw some elements over the camera image
 void drawBoxedText(cv::Mat &image_data, const std::string &text, const cv::Point &point);
 void drawCompass(cv::Mat &image_data, const IMUData &imu_data);
-}  // namespace carla_client
+}  // namespace client

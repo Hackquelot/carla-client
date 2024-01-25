@@ -3,7 +3,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace carla_client {
+namespace client {
 // Function to draw some text on screen with a solid background
 void drawBoxedText(cv::Mat& image_data, const std::string& text, const cv::Point& point) {
     auto text_size = cv::getTextSize(text, FONT_FACE, FONT_SCALE, FONT_THICKNESS, nullptr);
@@ -32,4 +32,4 @@ void drawCompass(cv::Mat& image_data, const IMUData& imu_data) {
         cv::line(image_data, {compass_center.first, compass_center.second}, compass_point, COLOR_WHITE, 2);
     }
 };
-}  // namespace carla_client
+}  // namespace client

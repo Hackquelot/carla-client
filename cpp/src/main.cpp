@@ -46,7 +46,7 @@ int main() try {
 
     // Spawn the vehicle in the world
     auto actor = world.SpawnActor(*(blueprint_library->Find("vehicle.tesla.model3")),
-                                  carla_client::RandomChoice(map_spawnpoints, rng));
+                                  client::RandomChoice(map_spawnpoints, rng));
     std::cout << "Spawned vehicle: " << actor->GetDisplayId() << '\n';
     auto vehicle = boost::static_pointer_cast<cc::Vehicle>(actor);
 
@@ -57,10 +57,10 @@ int main() try {
     {
         unsigned counter = 0;
         auto blueprint_vehicles = blueprint_library->Filter("vehicle");
-        for (unsigned index = 0; index < 20; ++index) {
+        for (unsigned index = 0; index < client::TRAFFIC_VEHICLES; ++index) {
             // Try to spawn a random vehicle and on a random spawn point
-            auto current_actor = world.TrySpawnActor(carla_client::RandomChoice(*blueprint_vehicles, rng),
-                                                     carla_client::RandomChoice(map_spawnpoints, rng));
+            auto current_actor = world.TrySpawnActor(client::RandomChoice(*blueprint_vehicles, rng),
+                                                     client::RandomChoice(map_spawnpoints, rng));
             if (nullptr != current_actor) {
                 boost::static_pointer_cast<cc::Vehicle>(current_actor)->SetAutopilot();
                 ++counter;
@@ -102,7 +102,7 @@ int main() try {
         gnss_data = gnss_measurement->GetGeoLocation();
     });
 
-    carla_client::IMUData imu_data;
+    client::IMUData imu_data;
     // Callback for the imu sensor
     imu_sensor->Listen([&](auto data) {
         auto imu_measurement = boost::static_pointer_cast<csd::IMUMeasurement>(data);
@@ -119,15 +119,14 @@ int main() try {
         world.WaitForTick(timeout);
         // Add some text to the image that will be displayed in screen
         {
-            carla_client::drawBoxedText(image_data, "Altitude: " + std::to_string(gnss_data.altitude), {20, 20});
-            carla_client::drawBoxedText(image_data, "Latitude: " + std::to_string(gnss_data.latitude), {20, 40});
-            carla_client::drawBoxedText(image_data, "Longitude: " + std::to_string(gnss_data.longitude), {20, 60});
-            carla_client::drawBoxedText(
-                image_data,
-                "Acceleration: " + std::to_string((imu_data.accelerometer - carla_client::gravity).Length()), {20, 80});
-            carla_client::drawBoxedText(image_data, "Gyroscope: " + std::to_string(imu_data.gyroscope.Length()),
-                                        {20, 100});
-            carla_client::drawCompass(image_data, imu_data);
+            client::drawBoxedText(image_data, "Altitude: " + std::to_string(gnss_data.altitude), {20, 20});
+            client::drawBoxedText(image_data, "Latitude: " + std::to_string(gnss_data.latitude), {20, 40});
+            client::drawBoxedText(image_data, "Longitude: " + std::to_string(gnss_data.longitude), {20, 60});
+            client::drawBoxedText(
+                image_data, "Acceleration: " + std::to_string((imu_data.accelerometer - client::gravity).Length()),
+                {20, 80});
+            client::drawBoxedText(image_data, "Gyroscope: " + std::to_string(imu_data.gyroscope.Length()), {20, 100});
+            client::drawCompass(image_data, imu_data);
         }
         // Render the camera picture on the screen
         cv::imshow(window_name, image_data);
