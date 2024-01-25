@@ -115,25 +115,40 @@ def main():
 
         # Add some text to the image that will be displayed in screen
         drawBoxedText(
-            sensor_data, "Altitude: " + str(sensor_data["gnss"]["altitude"]), (20, 20)
+            sensor_data,
+            "Altitude: " + str(round(sensor_data["gnss"]["altitude"], 4)),
+            (20, 20),
         )
         drawBoxedText(
-            sensor_data, "Latitude: " + str(sensor_data["gnss"]["latitude"]), (20, 40)
+            sensor_data,
+            "Latitude: " + str(round(sensor_data["gnss"]["latitude"], 4)),
+            (20, 40),
         )
         drawBoxedText(
-            sensor_data, "Longitude: " + str(sensor_data["gnss"]["longitude"]), (20, 60)
+            sensor_data,
+            "Longitude: " + str(round(sensor_data["gnss"]["longitude"], 4)),
+            (20, 60),
         )
         acceleration = sensor_data["imu"]["accelerometer"] - carla.Vector3D(0, 0, 9.81)
         drawBoxedText(
             sensor_data,
-            "Acceleration: " + str(acceleration.length()),
+            "Acceleration: " + str(round(acceleration.length(), 4)),
             (20, 80),
         )
         drawBoxedText(
             sensor_data,
-            "Gyroscope: " + str(sensor_data["imu"]["gyroscope"].length()),
+            "Gyroscope: " + str(round(sensor_data["imu"]["gyroscope"].length(), 4)),
             (20, 100),
         )
+        drawBoxedText(
+            sensor_data,
+            "Position X: "
+            + str(round(vehicle.get_location().x, 4))
+            + " , Y: "
+            + str(round(vehicle.get_location().y, 4)),
+            (20, 120),
+        )
+
         drawCompass(sensor_data)
 
         # Render the camera picture on the screen

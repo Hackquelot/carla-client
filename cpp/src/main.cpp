@@ -126,6 +126,11 @@ int main() try {
                 image_data, "Acceleration: " + std::to_string((imu_data.accelerometer - client::gravity).Length()),
                 {20, 80});
             client::drawBoxedText(image_data, "Gyroscope: " + std::to_string(imu_data.gyroscope.Length()), {20, 100});
+            client::drawBoxedText(image_data,
+                                  "Position X: " + std::to_string(vehicle->GetLocation().x) +
+                                      " , Y: " + std::to_string(vehicle->GetLocation().y),
+                                  {20, 120});
+
             client::drawCompass(image_data, imu_data);
         }
         // Render the camera picture on the screen
